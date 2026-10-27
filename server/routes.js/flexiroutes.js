@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const FlexiItem = require('../models/FlexiItems');
-const user = require('../models/user');
+const User = require('../models/user');
 
 // ==========================================
 // 1. AUTHENTICATION ROUTES (Signup & Login)
