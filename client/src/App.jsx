@@ -27,7 +27,7 @@ export default function App() {
 
   const triggerToast = (message, type = 'info') => {
     setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 3000);
+    setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 3200);
   };
 
   useEffect(() => {
@@ -41,11 +41,9 @@ export default function App() {
     try {
       const res = await fetch(API_BASE);
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setItems(data);
-      }
+      if (Array.isArray(data)) setItems(data);
     } catch (err) {
-      triggerToast('Could not fetch data from backend', 'error');
+      triggerToast('Could not fetch documents from backend', 'error');
     } finally {
       setLoadingItems(false);
     }
@@ -75,10 +73,10 @@ export default function App() {
 
       setCurrentUser(data.user);
       localStorage.setItem('flexi_user', JSON.stringify(data.user));
-      triggerToast(isLoginMode ? `Welcome back!` : 'Account successfully created!', 'success');
+      triggerToast(isLoginMode ? `Authenticated as ${data.user.name || 'User'}` : 'Workspace account activated', 'success');
       setAuthForm({ name: '', email: '', password: '' });
     } catch (err) {
-      setAuthError('Backend unreachable on port 5000. Ensure node server.js is running.');
+      setAuthError('Backend cluster offline on port 5000. Start server.js first.');
     } finally {
       setAuthLoading(false);
     }
@@ -88,7 +86,7 @@ export default function App() {
     localStorage.removeItem('flexi_user');
     setCurrentUser(null);
     setItems([]);
-    triggerToast('Logged out successfully', 'info');
+    triggerToast('Session terminated', 'info');
   };
 
   const openCreateModal = () => {
@@ -121,7 +119,7 @@ export default function App() {
         });
         const updated = await res.json();
         setItems(items.map((i) => (i._id === editingItem._id ? updated : i)));
-        triggerToast('Item updated successfully', 'success');
+        triggerToast('Record modified and synced', 'success');
       } else {
         const res = await fetch(API_BASE, {
           method: 'POST',
@@ -130,26 +128,26 @@ export default function App() {
         });
         const created = await res.json();
         setItems([created, ...items]);
-        triggerToast('New item added to MongoDB', 'success');
+        triggerToast('Document written to MongoDB', 'success');
       }
       closeModal();
     } catch (err) {
-      triggerToast('Server request failed', 'error');
+      triggerToast('I/O error during persistence', 'error');
     }
   };
 
   const handleDeleteItem = async (id) => {
-    if (!window.confirm('Delete this record?')) return;
+    if (!window.confirm('Permanently delete this MongoDB document?')) return;
     try {
       const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setItems(items.filter((i) => i._id !== id));
-        triggerToast('Item deleted from MongoDB', 'success');
+        triggerToast('Document removed from cluster', 'success');
       } else {
-        triggerToast('Error deleting item', 'error');
+        triggerToast('Failed to drop record', 'error');
       }
     } catch (err) {
-      triggerToast('Server unreachable', 'error');
+      triggerToast('Server offline', 'error');
     }
   };
 
@@ -172,50 +170,100 @@ export default function App() {
   }, [items]);
 
   return (
-    <div style={styles.appShell}>
+    <div className="flexi-root" style={styles.appShell}>
+      {/* Dynamic Keyframe & Reset Styles */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        * { box-sizing: border-box; }
+        body { margin: 0; background-color: #0b0f17; }
+        .flexi-root { font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; }
+        .kpi-hover { transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; }
+        .kpi-hover:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.18) !important; box-shadow: 0 12px 30px -10px rgba(0,0,0,0.5) !important; }
+        .row-hover { transition: background 0.15s ease; }
+        .row-hover:hover { background-color: rgba(255, 255, 255, 0.02) !important; }
+        .custom-select {
+          appearance: none;
+          background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+          background-repeat: no-repeat;
+          background-position: right 10px center;
+          background-size: 14px;
+          padding-right: 32px !important;
+        }
+        @keyframes pulseDot {
+          0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
+          70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        .pulse-live { animation: pulseDot 2s infinite cubic-bezier(0.4, 0, 0.6, 1); }
+      `}</style>
+
+      {/* Floating Modern Toast */}
       {toast.show && (
         <div style={{ ...styles.toast, ...(toast.type === 'error' ? styles.toastError : styles.toastSuccess) }}>
-          <span>{toast.type === 'error' ? '⚠️' : '✅'}</span>
-          <span>{toast.message}</span>
+          <div style={styles.toastIcon}>
+            {toast.type === 'error' ? '✕' : '✓'}
+          </div>
+          <span style={{ fontSize: '13px', fontWeight: '500' }}>{toast.message}</span>
         </div>
       )}
 
-      <nav style={styles.navBar}>
-        <div style={styles.brandGroup}>
-          <div style={styles.logoBadge}>⚡</div>
-          <div>
-            <div style={styles.brandTitle}>FLEXI Enterprise Suite</div>
-            <div style={styles.brandSub}>PRN: 25070521321 | Section C | Full-Stack MERN</div>
+      {/* Glass Top Navigation */}
+      <header style={styles.navBar}>
+        <div style={styles.navInner}>
+          <div style={styles.brandGroup}>
+            <div style={styles.logoMark}>
+              <span style={{ transform: 'translateY(-1px)' }}>⚡</span>
+            </div>
+            <div>
+              <div style={styles.brandText}>
+                FLEXI <span style={styles.brandBadge}>PRO</span>
+              </div>
+              <div style={styles.brandSub}>PRN: 25070521321 • Sec C • MongoDB Cloud Node</div>
+            </div>
           </div>
+
+          {currentUser ? (
+            <div style={styles.userNav}>
+              <div style={styles.mongoStatusTag}>
+                <span className="pulse-live" style={styles.mongoStatusDot} />
+                <span>Compass 27017 Active</span>
+              </div>
+              <div style={styles.userDivider} />
+              <div style={styles.userProfile}>
+                <div style={styles.userAvatar}>
+                  {(currentUser.name || currentUser.email || 'U')[0].toUpperCase()}
+                </div>
+                <div style={styles.userInfoCol}>
+                  <span style={styles.userNameText}>{currentUser.name || 'Utkarsh'}</span>
+                  <span style={styles.userEmailText}>{currentUser.email}</span>
+                </div>
+              </div>
+              <button onClick={handleLogout} style={styles.signOutBtn}>
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <div style={styles.mongoStatusTag}>
+              <span className="pulse-live" style={styles.mongoStatusDot} />
+              <span>Engine Ready</span>
+            </div>
+          )}
         </div>
+      </header>
 
-        {currentUser && (
-          <div style={styles.userNav}>
-            <div style={styles.avatar}>
-              {(currentUser.name || currentUser.email || 'U')[0].toUpperCase()}
-            </div>
-            <div style={styles.userMeta}>
-              <span style={styles.userName}>{currentUser.name || 'Admin'}</span>
-              <span style={styles.userEmail}>{currentUser.email}</span>
-            </div>
-            <button onClick={handleLogout} style={styles.logoutBtn}>
-              Sign Out
-            </button>
-          </div>
-        )}
-      </nav>
-
+      {/* Main App Workspace */}
       <main style={styles.mainContainer}>
         {!currentUser ? (
+          /* Authentication View */
           <div style={styles.authWrapper}>
             <div style={styles.authCard}>
               <div style={styles.authHeader}>
                 <div style={styles.authIconRing}>⚡</div>
-                <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#0f172a', margin: '12px 0 6px 0' }}>
-                  {isLoginMode ? 'Sign In to FLEXI' : 'Create an Account'}
+                <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#f8fafc', margin: '14px 0 6px 0' }}>
+                  {isLoginMode ? 'Access Workspace' : 'Create Workspace Account'}
                 </h2>
-                <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>
-                  {isLoginMode ? 'Enter credentials to manage database records' : 'Set up your credentials below'}
+                <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>
+                  {isLoginMode ? 'Authenticate to manage your MongoDB collections' : 'Configure credentials for local database interaction'}
                 </p>
               </div>
 
@@ -224,11 +272,11 @@ export default function App() {
               <form onSubmit={handleAuth} style={styles.authForm}>
                 {!isLoginMode && (
                   <div>
-                    <label style={styles.label}>Full Name</label>
+                    <label style={styles.fieldLabel}>FULL NAME</label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Utkarsh Ratnaparkhi"
+                      placeholder="Utkarsh Ratnaparkhi"
                       value={authForm.name}
                       onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
                       style={styles.textInput}
@@ -237,11 +285,11 @@ export default function App() {
                 )}
 
                 <div>
-                  <label style={styles.label}>Email Address</label>
+                  <label style={styles.fieldLabel}>EMAIL ADDRESS</label>
                   <input
                     type="email"
                     required
-                    placeholder="utkarsh@example.com"
+                    placeholder="utkarsh@domain.com"
                     value={authForm.email}
                     onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
                     style={styles.textInput}
@@ -249,78 +297,102 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label style={styles.label}>Password</label>
+                  <label style={styles.fieldLabel}>PASSWORD</label>
                   <input
                     type="password"
                     required
-                    placeholder="••••••••"
+                    placeholder="••••••••••••"
                     value={authForm.password}
                     onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
                     style={styles.textInput}
                   />
                 </div>
 
-                <button type="submit" disabled={authLoading} style={styles.primaryBtn}>
-                  {authLoading ? 'Verifying...' : isLoginMode ? 'Sign In' : 'Create Account'}
+                <button type="submit" disabled={authLoading} style={styles.primaryAuthBtn}>
+                  {authLoading ? 'Verifying Cluster...' : isLoginMode ? 'Authenticate Session' : 'Register Account'}
                 </button>
               </form>
 
               <div style={styles.authToggle}>
-                {isLoginMode ? "Need an account?" : 'Already registered?'}
+                <span style={{ color: '#64748b' }}>
+                  {isLoginMode ? "Need to create a new user?" : 'Already registered?'}
+                </span>
                 <button
                   type="button"
-                  style={styles.textBtn}
+                  style={styles.authToggleBtn}
                   onClick={() => {
                     setIsLoginMode(!isLoginMode);
                     setAuthError('');
                   }}
                 >
-                  {isLoginMode ? 'Register here' : 'Login here'}
+                  {isLoginMode ? 'Register here' : 'Sign in'}
                 </button>
               </div>
             </div>
           </div>
         ) : (
+          /* High-End Enterprise Dashboard */
           <div>
-            <section style={styles.metricsGrid}>
-              <div style={styles.metricCard}>
-                <div style={styles.metricLabel}>Total Items</div>
-                <div style={styles.metricVal}>{stats.total}</div>
-                <div style={styles.metricSub}>MongoDB synced</div>
+            {/* KPI Overview Strip */}
+            <div style={styles.kpiGrid}>
+              <div className="kpi-hover" style={styles.kpiCard}>
+                <div style={styles.kpiCardTop}>
+                  <span style={styles.kpiCardTitle}>TOTAL PERSISTED</span>
+                  <div style={{ ...styles.kpiBadge, background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa' }}>DB</div>
+                </div>
+                <div style={styles.kpiValue}>{stats.total}</div>
+                <div style={styles.kpiCaption}>Documents in Compass</div>
               </div>
-              <div style={styles.metricCard}>
-                <div style={styles.metricLabel}>In Progress</div>
-                <div style={{ ...styles.metricVal, color: '#f59e0b' }}>{stats.inProgress}</div>
-                <div style={styles.metricSub}>Active items</div>
+
+              <div className="kpi-hover" style={styles.kpiCard}>
+                <div style={styles.kpiCardTop}>
+                  <span style={styles.kpiCardTitle}>ACTIVE PIPELINE</span>
+                  <div style={{ ...styles.kpiBadge, background: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24' }}>RUN</div>
+                </div>
+                <div style={{ ...styles.kpiValue, color: '#fbbf24' }}>{stats.inProgress}</div>
+                <div style={styles.kpiCaption}>Pending final review</div>
               </div>
-              <div style={styles.metricCard}>
-                <div style={styles.metricLabel}>Completed</div>
-                <div style={{ ...styles.metricVal, color: '#10b981' }}>{stats.completed}</div>
-                <div style={styles.metricSub}>Done</div>
+
+              <div className="kpi-hover" style={styles.kpiCard}>
+                <div style={styles.kpiCardTop}>
+                  <span style={styles.kpiCardTitle}>COMPLETED</span>
+                  <div style={{ ...styles.kpiBadge, background: 'rgba(34, 197, 94, 0.1)', color: '#4ade80' }}>DONE</div>
+                </div>
+                <div style={{ ...styles.kpiValue, color: '#4ade80' }}>{stats.completed}</div>
+                <div style={styles.kpiCaption}>Verified operations</div>
               </div>
-              <div style={styles.metricCard}>
-                <div style={styles.metricLabel}>Progress</div>
-                <div style={{ ...styles.metricVal, color: '#6366f1' }}>{stats.score}%</div>
-                <div style={styles.progressBarBg}>
-                  <div style={{ ...styles.progressBarFill, width: `${stats.score}%` }}></div>
+
+              <div className="kpi-hover" style={styles.kpiCard}>
+                <div style={styles.kpiCardTop}>
+                  <span style={styles.kpiCardTitle}>COMPLETION RATE</span>
+                  <div style={{ ...styles.kpiBadge, background: 'rgba(99, 102, 241, 0.1)', color: '#818cf8' }}>KPI</div>
+                </div>
+                <div style={{ ...styles.kpiValue, color: '#818cf8' }}>{stats.score}%</div>
+                <div style={styles.metricTrack}>
+                  <div style={{ ...styles.metricTrackFill, width: `${stats.score}%` }} />
                 </div>
               </div>
-            </section>
+            </div>
 
-            <div style={styles.actionBar}>
-              <div style={styles.searchGroup}>
-                <input
-                  type="text"
-                  placeholder="🔍 Search items by title..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={styles.searchInput}
-                />
+            {/* Filter & Command Header */}
+            <div style={styles.commandBar}>
+              <div style={styles.searchCluster}>
+                <div style={styles.searchWrapper}>
+                  <span style={styles.searchPrefix}>⌕</span>
+                  <input
+                    type="text"
+                    placeholder="Search collection records..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={styles.searchInput}
+                  />
+                </div>
 
                 <select
                   value={filterCategory}
                   onChange={(e) => setFilterCategory(e.target.value)}
-                  style={styles.dropdownInput}
+                  className="custom-select"
+                  style={styles.minimalSelect}
                 >
                   <option value="All">All Categories</option>
                   <option value="Work">Work</option>
@@ -332,7 +404,8 @@ export default function App() {
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  style={styles.dropdownInput}
+                  className="custom-select"
+                  style={styles.minimalSelect}
                 >
                   <option value="All">All Statuses</option>
                   <option value="Pending">Pending</option>
@@ -341,70 +414,81 @@ export default function App() {
                 </select>
               </div>
 
-              <button onClick={openCreateModal} style={styles.actionAddBtn}>
-                + Add New Item
+              <button onClick={openCreateModal} style={styles.addRecordBtn}>
+                <span style={{ fontSize: '15px' }}>+</span> Write Document
               </button>
             </div>
 
-            <div style={styles.tableCard}>
-              <div style={styles.tableCardHeader}>
-                <div style={{ fontWeight: '700', fontSize: '15px', color: '#1e293b' }}>
-                  Live Compass Collection ({filteredItems.length})
+            {/* Premium Table Card */}
+            <div style={styles.tablePanel}>
+              <div style={styles.tablePanelHeader}>
+                <div style={styles.tablePanelHeading}>
+                  <span>Live Collection: <code>flexiitems</code></span>
+                  <span style={styles.recordCounter}>{filteredItems.length} records</span>
                 </div>
-                <button onClick={fetchItems} style={styles.refreshIconBtn}>
-                  🔄 Refresh
+                <button onClick={fetchItems} style={styles.syncBtn}>
+                  <span>↻</span> Sync
                 </button>
               </div>
 
               {loadingItems ? (
-                <div style={styles.loadingState}>Loading MongoDB collection...</div>
+                <div style={styles.emptyState}>Querying MongoDB database...</div>
               ) : filteredItems.length === 0 ? (
                 <div style={styles.emptyState}>
-                  <div style={{ fontSize: '36px', marginBottom: '8px' }}>📦</div>
-                  <div style={{ fontWeight: '600', color: '#334155' }}>No items found</div>
-                  <div style={{ fontSize: '13px', color: '#94a3b8' }}>
-                    {searchQuery ? 'No match found for that search.' : 'Click "+ Add New Item" to create one.'}
+                  <div style={{ fontSize: '32px', marginBottom: '10px' }}>📦</div>
+                  <div style={{ fontWeight: '600', color: '#f1f5f9', fontSize: '15px' }}>No records found</div>
+                  <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+                    {searchQuery ? 'Adjust your search queries or active filters.' : 'Click "Write Document" above to insert your first record.'}
                   </div>
                 </div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={styles.table}>
                     <thead>
-                      <tr style={styles.trHead}>
-                        <th style={styles.th}>Title</th>
-                        <th style={styles.th}>Category</th>
-                        <th style={styles.th}>Status</th>
-                        <th style={styles.th}>Created</th>
-                        <th style={{ ...styles.th, textAlign: 'right' }}>Actions</th>
+                      <tr>
+                        <th style={styles.th}>RECORD / OBJECT ID</th>
+                        <th style={styles.th}>CATEGORY</th>
+                        <th style={styles.th}>EXECUTION STATUS</th>
+                        <th style={styles.th}>TIMESTAMP</th>
+                        <th style={{ ...styles.th, textAlign: 'right' }}>ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredItems.map((item) => (
-                        <tr key={item._id} style={styles.trRow}>
-                          <td style={styles.tdTitle}>
-                            <div style={{ fontWeight: '600', color: '#0f172a' }}>{item.title}</div>
-                            <div style={{ fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace' }}>
-                              {item._id}
-                            </div>
+                        <tr key={item._id} className="row-hover" style={styles.tr}>
+                          <td style={styles.td}>
+                            <div style={styles.recordTitle}>{item.title}</div>
+                            <div style={styles.objectIdTag}>{item._id}</div>
                           </td>
                           <td style={styles.td}>
-                            <span style={styles.catBadge}>{item.category || 'General'}</span>
+                            <span style={styles.categoryPill}>{item.category || 'General'}</span>
                           </td>
                           <td style={styles.td}>
                             <span
                               style={{
-                                ...styles.statusBadge,
+                                ...styles.statusPill,
                                 ...(item.status === 'Completed'
-                                  ? styles.statusCompleted
+                                  ? styles.pillCompleted
                                   : item.status === 'In Progress'
-                                  ? styles.statusInProgress
-                                  : styles.statusPending),
+                                  ? styles.pillProgress
+                                  : styles.pillPending),
                               }}
                             >
+                              <span
+                                style={{
+                                  ...styles.statusDot,
+                                  backgroundColor:
+                                    item.status === 'Completed'
+                                      ? '#22c55e'
+                                      : item.status === 'In Progress'
+                                      ? '#f59e0b'
+                                      : '#64748b',
+                                }}
+                              />
                               {item.status || 'Pending'}
                             </span>
                           </td>
-                          <td style={styles.tdDate}>
+                          <td style={{ ...styles.td, color: '#64748b', fontSize: '13px' }}>
                             {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'Today'}
                           </td>
                           <td style={{ ...styles.td, textAlign: 'right' }}>
@@ -426,23 +510,29 @@ export default function App() {
         )}
       </main>
 
+      {/* Glassmorphic Modal Dialog */}
       {modalOpen && (
         <div style={styles.modalOverlay} onClick={closeModal}>
           <div style={styles.modalBox} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>
-                {editingItem ? 'Edit Document' : 'Create Document'}
-              </h3>
-              <button onClick={closeModal} style={styles.closeBtn}>✕</button>
+            <div style={styles.modalTop}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#f8fafc' }}>
+                  {editingItem ? 'Edit Document' : 'Insert Document'}
+                </h3>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                  Target: <code>flexi_db.flexiitems</code>
+                </div>
+              </div>
+              <button onClick={closeModal} style={styles.modalCloseBtn}>✕</button>
             </div>
 
-            <form onSubmit={handleSaveItem} style={styles.modalBody}>
+            <form onSubmit={handleSaveItem} style={styles.modalForm}>
               <div>
-                <label style={styles.label}>Title</label>
+                <label style={styles.fieldLabel}>TITLE OR DESCRIPTION</label>
                 <input
                   type="text"
                   required
-                  placeholder="Task or record title..."
+                  placeholder="e.g. Implement JWT authentication layer"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   style={styles.textInput}
@@ -452,10 +542,11 @@ export default function App() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={styles.label}>Category</label>
+                  <label style={styles.fieldLabel}>CATEGORY</label>
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="custom-select"
                     style={styles.textInput}
                   >
                     <option value="Work">Work</option>
@@ -466,10 +557,11 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label style={styles.label}>Status</label>
+                  <label style={styles.fieldLabel}>EXECUTION STATUS</label>
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    className="custom-select"
                     style={styles.textInput}
                   >
                     <option value="Pending">Pending</option>
@@ -479,12 +571,12 @@ export default function App() {
                 </div>
               </div>
 
-              <div style={styles.modalFooter}>
-                <button type="button" onClick={closeModal} style={styles.cancelBtn}>
+              <div style={styles.modalActions}>
+                <button type="button" onClick={closeModal} style={styles.modalCancelBtn}>
                   Cancel
                 </button>
-                <button type="submit" style={styles.primaryBtn}>
-                  {editingItem ? 'Save Changes' : 'Write to MongoDB'}
+                <button type="submit" style={styles.modalSubmitBtn}>
+                  {editingItem ? 'Commit Changes' : 'Write Document'}
                 </button>
               </div>
             </form>
@@ -498,332 +590,438 @@ export default function App() {
 const styles = {
   appShell: {
     minHeight: '100vh',
-    backgroundColor: '#f8fafc',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
-    color: '#1e293b',
+    backgroundColor: '#090d16',
+    color: '#f8fafc',
+    paddingBottom: '60px',
   },
   navBar: {
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    backdropFilter: 'blur(16px)',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
+    position: 'sticky',
+    top: 0,
+    zIndex: 100,
+  },
+  navInner: {
+    maxWidth: '1160px',
+    margin: '0 auto',
+    padding: '14px 24px',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '14px 28px',
-    backgroundColor: '#0f172a',
-    color: '#ffffff',
   },
   brandGroup: { display: 'flex', alignItems: 'center', gap: '12px' },
-  logoBadge: {
+  logoMark: {
     width: '36px',
     height: '36px',
-    backgroundColor: '#2563eb',
-    borderRadius: '8px',
+    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+    borderRadius: '10px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     fontSize: '18px',
     fontWeight: 'bold',
+    boxShadow: '0 0 20px rgba(59, 130, 246, 0.35)',
   },
-  brandTitle: { fontSize: '17px', fontWeight: '700' },
-  brandSub: { fontSize: '11px', color: '#94a3b8' },
-  userNav: { display: 'flex', alignItems: 'center', gap: '12px' },
-  avatar: {
+  brandText: { fontSize: '16px', fontWeight: '800', letterSpacing: '-0.3px', color: '#ffffff' },
+  brandBadge: {
+    fontSize: '10px',
+    fontWeight: '700',
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    color: '#60a5fa',
+    border: '1px solid rgba(59, 130, 246, 0.3)',
+    borderRadius: '4px',
+    padding: '2px 5px',
+    marginLeft: '6px',
+    letterSpacing: '0.5px',
+  },
+  brandSub: { fontSize: '11px', color: '#64748b', marginTop: '2px' },
+  userNav: { display: 'flex', alignItems: 'center', gap: '14px' },
+  mongoStatusTag: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: 'rgba(34, 197, 94, 0.08)',
+    border: '1px solid rgba(34, 197, 94, 0.2)',
+    padding: '5px 10px',
+    borderRadius: '20px',
+    fontSize: '11px',
+    fontWeight: '600',
+    color: '#4ade80',
+  },
+  mongoStatusDot: {
+    width: '7px',
+    height: '7px',
+    borderRadius: '50%',
+    backgroundColor: '#22c55e',
+  },
+  userDivider: { width: '1px', height: '24px', backgroundColor: 'rgba(255,255,255,0.08)' },
+  userProfile: { display: 'flex', alignItems: 'center', gap: '10px' },
+  userAvatar: {
     width: '32px',
     height: '32px',
-    borderRadius: '50%',
-    backgroundColor: '#2563eb',
+    borderRadius: '8px',
+    background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+    border: '1px solid rgba(255, 255, 255, 0.12)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontWeight: '700',
     fontSize: '13px',
-    color: '#fff',
+    fontWeight: '700',
+    color: '#60a5fa',
   },
-  userMeta: { display: 'flex', flexDirection: 'column' },
-  userName: { fontSize: '13px', fontWeight: '600' },
-  userEmail: { fontSize: '11px', color: '#94a3b8' },
-  logoutBtn: {
-    background: '#1e293b',
-    border: '1px solid #334155',
-    color: '#f8fafc',
-    padding: '5px 12px',
+  userInfoCol: { display: 'flex', flexDirection: 'column' },
+  userNameText: { fontSize: '13px', fontWeight: '600', color: '#f1f5f9' },
+  userEmailText: { fontSize: '11px', color: '#64748b' },
+  signOutBtn: {
+    background: 'rgba(255, 255, 255, 0.04)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    color: '#cbd5e1',
+    padding: '6px 12px',
     borderRadius: '6px',
     fontSize: '12px',
+    fontWeight: '500',
     cursor: 'pointer',
   },
-  mainContainer: { maxWidth: '1100px', margin: '24px auto', padding: '0 16px' },
+  mainContainer: { maxWidth: '1160px', margin: '28px auto', padding: '0 24px' },
   authWrapper: { display: 'flex', justifyContent: 'center', marginTop: '40px' },
   authCard: {
     width: '100%',
     maxWidth: '400px',
-    background: '#ffffff',
-    borderRadius: '12px',
-    padding: '30px 24px',
-    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.05)',
-    border: '1px solid #e2e8f0',
+    background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%)',
+    backdropFilter: 'blur(16px)',
+    borderRadius: '16px',
+    padding: '36px 30px',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
   },
-  authHeader: { textAlign: 'center', marginBottom: '20px' },
+  authHeader: { textAlign: 'center', marginBottom: '24px' },
   authIconRing: {
-    width: '46px',
-    height: '46px',
-    margin: '0 auto',
-    borderRadius: '50%',
-    background: '#eff6ff',
-    color: '#2563eb',
+    width: '48px',
+    height: '48px',
+    borderRadius: '12px',
+    background: 'rgba(59, 130, 246, 0.1)',
+    border: '1px solid rgba(59, 130, 246, 0.25)',
+    color: '#60a5fa',
+    fontSize: '22px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '22px',
+    margin: '0 auto',
   },
-  authForm: { display: 'flex', flexDirection: 'column', gap: '14px' },
+  authForm: { display: 'flex', flexDirection: 'column', gap: '16px' },
   authErrorAlert: {
-    backgroundColor: '#fef2f2',
-    color: '#b91c1c',
-    padding: '8px 12px',
-    borderRadius: '6px',
-    fontSize: '13px',
-    border: '1px solid #fecaca',
-    marginBottom: '10px',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    color: '#f87171',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    padding: '10px 14px',
+    borderRadius: '8px',
+    fontSize: '12px',
+    marginBottom: '8px',
   },
-  label: { display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '4px' },
+  fieldLabel: {
+    display: 'block',
+    fontSize: '11px',
+    fontWeight: '700',
+    letterSpacing: '0.6px',
+    color: '#94a3b8',
+    marginBottom: '6px',
+  },
   textInput: {
     width: '100%',
-    boxSizing: 'border-box',
-    padding: '9px 12px',
-    borderRadius: '6px',
-    border: '1px solid #cbd5e1',
-    fontSize: '14px',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '8px',
+    padding: '10px 14px',
+    color: '#ffffff',
+    fontSize: '13px',
     outline: 'none',
   },
-  primaryBtn: {
-    backgroundColor: '#2563eb',
+  primaryAuthBtn: {
+    marginTop: '6px',
+    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
     color: '#ffffff',
-    padding: '10px 16px',
     border: 'none',
-    borderRadius: '6px',
+    padding: '11px',
+    borderRadius: '8px',
     fontWeight: '600',
-    fontSize: '14px',
-    cursor: 'pointer',
-  },
-  authToggle: {
-    textAlign: 'center',
-    marginTop: '18px',
     fontSize: '13px',
-    color: '#64748b',
+    cursor: 'pointer',
+    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.35)',
   },
-  textBtn: {
+  authToggle: { textAlign: 'center', marginTop: '20px', fontSize: '13px' },
+  authToggleBtn: {
     background: 'none',
     border: 'none',
-    color: '#2563eb',
+    color: '#60a5fa',
     fontWeight: '600',
     cursor: 'pointer',
     marginLeft: '6px',
-    fontSize: '13px',
   },
-  metricsGrid: {
+  kpiGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '14px',
-    marginBottom: '20px',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: '16px',
+    marginBottom: '24px',
   },
-  metricCard: {
-    background: '#ffffff',
-    borderRadius: '10px',
-    padding: '16px',
-    border: '1px solid #e2e8f0',
+  kpiCard: {
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    border: '1px solid rgba(255, 255, 255, 0.07)',
+    borderRadius: '14px',
+    padding: '20px',
+    backdropFilter: 'blur(12px)',
   },
-  metricLabel: { fontSize: '12px', color: '#64748b', fontWeight: '500' },
-  metricVal: { fontSize: '26px', fontWeight: '800', color: '#0f172a', margin: '4px 0 2px 0' },
-  metricSub: { fontSize: '11px', color: '#94a3b8' },
-  progressBarBg: {
-    height: '6px',
-    backgroundColor: '#e2e8f0',
+  kpiCardTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  kpiCardTitle: { fontSize: '11px', fontWeight: '700', color: '#64748b', letterSpacing: '0.6px' },
+  kpiBadge: { padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '700' },
+  kpiValue: { fontSize: '32px', fontWeight: '800', color: '#f8fafc', margin: '8px 0 4px 0', letterSpacing: '-1px' },
+  kpiCaption: { fontSize: '12px', color: '#64748b' },
+  metricTrack: {
+    height: '4px',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: '4px',
-    marginTop: '8px',
+    marginTop: '10px',
     overflow: 'hidden',
   },
-  progressBarFill: {
+  metricTrackFill: {
     height: '100%',
-    backgroundColor: '#6366f1',
+    background: 'linear-gradient(90deg, #6366f1, #818cf8)',
     borderRadius: '4px',
   },
-  actionBar: {
+  commandBar: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    flexWrap: 'wrap',
     gap: '12px',
-    marginBottom: '16px',
-  },
-  searchGroup: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    flex: '1',
+    marginBottom: '20px',
     flexWrap: 'wrap',
+  },
+  searchCluster: { display: 'flex', alignItems: 'center', gap: '10px', flex: '1', flexWrap: 'wrap' },
+  searchWrapper: { position: 'relative', flex: '1', minWidth: '240px' },
+  searchPrefix: {
+    position: 'absolute',
+    left: '12px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    color: '#64748b',
+    fontSize: '16px',
   },
   searchInput: {
-    padding: '8px 12px',
-    borderRadius: '6px',
-    border: '1px solid #cbd5e1',
-    fontSize: '13px',
-    minWidth: '220px',
-    outline: 'none',
-  },
-  dropdownInput: {
-    padding: '8px 10px',
-    borderRadius: '6px',
-    border: '1px solid #cbd5e1',
+    width: '100%',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '8px',
+    padding: '9px 12px 9px 34px',
+    color: '#f8fafc',
     fontSize: '13px',
     outline: 'none',
-    backgroundColor: '#ffffff',
-    color: '#334155',
   },
-  actionAddBtn: {
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
-    padding: '9px 16px',
-    border: 'none',
-    borderRadius: '6px',
-    fontWeight: '600',
+  minimalSelect: {
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '8px',
+    padding: '9px 12px',
+    color: '#cbd5e1',
     fontSize: '13px',
+    outline: 'none',
     cursor: 'pointer',
   },
-  tableCard: {
-    background: '#ffffff',
-    borderRadius: '10px',
-    border: '1px solid #e2e8f0',
-    boxShadow: '0 2px 5px rgba(0, 0, 0, 0.03)',
+  addRecordBtn: {
+    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+    color: '#ffffff',
+    border: 'none',
+    padding: '9px 18px',
+    borderRadius: '8px',
+    fontWeight: '600',
+    fontSize: '13px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    cursor: 'pointer',
+    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)',
+  },
+  tablePanel: {
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    border: '1px solid rgba(255, 255, 255, 0.07)',
+    borderRadius: '14px',
+    backdropFilter: 'blur(12px)',
     overflow: 'hidden',
   },
-  tableCardHeader: {
+  tablePanelHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '14px 18px',
-    borderBottom: '1px solid #f1f5f9',
+    padding: '16px 20px',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
   },
-  refreshIconBtn: {
-    background: '#f8fafc',
-    border: '1px solid #e2e8f0',
-    padding: '5px 10px',
-    borderRadius: '5px',
-    fontSize: '12px',
-    cursor: 'pointer',
-    color: '#475569',
-  },
-  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
-  trHead: { background: '#f8fafc', borderBottom: '1px solid #e2e8f0' },
-  th: { padding: '10px 18px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' },
-  trRow: { borderBottom: '1px solid #f1f5f9' },
-  td: { padding: '12px 18px', fontSize: '13px' },
-  tdTitle: { padding: '12px 18px' },
-  tdDate: { padding: '12px 18px', fontSize: '12px', color: '#64748b' },
-  catBadge: {
-    padding: '3px 8px',
-    borderRadius: '4px',
-    fontSize: '11px',
-    fontWeight: '500',
-    background: '#e0e7ff',
-    color: '#3730a3',
-  },
-  statusBadge: {
-    padding: '3px 8px',
+  tablePanelHeading: { fontSize: '13px', fontWeight: '600', color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: '8px' },
+  recordCounter: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    color: '#94a3b8',
+    padding: '2px 8px',
     borderRadius: '12px',
     fontSize: '11px',
     fontWeight: '600',
   },
-  statusCompleted: { background: '#dcfce7', color: '#15803d' },
-  statusInProgress: { background: '#fef3c7', color: '#b45309' },
-  statusPending: { background: '#f1f5f9', color: '#475569' },
-  editBtn: {
-    background: '#eff6ff',
-    border: '1px solid #bfdbfe',
-    color: '#1d4ed8',
+  syncBtn: {
+    background: 'rgba(255, 255, 255, 0.04)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    padding: '5px 12px',
+    borderRadius: '6px',
+    fontSize: '12px',
+    fontWeight: '500',
+    color: '#cbd5e1',
+    cursor: 'pointer',
+  },
+  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
+  th: {
+    padding: '12px 20px',
+    fontSize: '11px',
+    fontWeight: '700',
+    color: '#64748b',
+    letterSpacing: '0.6px',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+  },
+  tr: { borderBottom: '1px solid rgba(255, 255, 255, 0.04)' },
+  td: { padding: '16px 20px', fontSize: '13px' },
+  recordTitle: { fontWeight: '600', color: '#f8fafc', fontSize: '14px' },
+  objectIdTag: { fontSize: '11px', color: '#64748b', fontFamily: 'monospace', marginTop: '2px' },
+  categoryPill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    color: '#cbd5e1',
     padding: '4px 10px',
-    borderRadius: '5px',
+    borderRadius: '6px',
     fontSize: '11px',
     fontWeight: '600',
-    marginRight: '6px',
+    border: '1px solid rgba(255, 255, 255, 0.05)',
+  },
+  statusPill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '4px 10px',
+    borderRadius: '20px',
+    fontSize: '11px',
+    fontWeight: '600',
+  },
+  statusDot: { width: '6px', height: '6px', borderRadius: '50%' },
+  pillCompleted: { backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.2)' },
+  pillProgress: { backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.2)' },
+  pillPending: { backgroundColor: 'rgba(148, 163, 184, 0.1)', color: '#94a3b8', border: '1px solid rgba(148, 163, 184, 0.2)' },
+  editBtn: {
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    border: '1px solid rgba(59, 130, 246, 0.25)',
+    color: '#60a5fa',
+    padding: '5px 12px',
+    borderRadius: '6px',
+    fontSize: '12px',
+    fontWeight: '600',
+    marginRight: '8px',
     cursor: 'pointer',
   },
   deleteBtn: {
-    background: '#fef2f2',
-    border: '1px solid #fecaca',
-    color: '#dc2626',
-    padding: '4px 10px',
-    borderRadius: '5px',
-    fontSize: '11px',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    border: '1px solid rgba(239, 68, 68, 0.25)',
+    color: '#f87171',
+    padding: '5px 12px',
+    borderRadius: '6px',
+    fontSize: '12px',
     fontWeight: '600',
     cursor: 'pointer',
   },
-  emptyState: { padding: '40px 16px', textAlign: 'center' },
-  loadingState: { padding: '30px 16px', textAlign: 'center', color: '#64748b' },
+  emptyState: { padding: '60px 20px', textAlign: 'center' },
   modalOverlay: {
     position: 'fixed',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    backgroundColor: 'rgba(3, 7, 18, 0.8)',
+    backdropFilter: 'blur(10px)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,
   },
   modalBox: {
-    background: '#ffffff',
-    borderRadius: '12px',
+    backgroundColor: '#0f172a',
+    borderRadius: '16px',
     width: '100%',
     maxWidth: '460px',
-    padding: '20px',
+    padding: '24px',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
   },
-  modalHeader: {
+  modalTop: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '14px',
-    borderBottom: '1px solid #f1f5f9',
-    paddingBottom: '10px',
+    alignItems: 'flex-start',
+    marginBottom: '18px',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+    paddingBottom: '14px',
   },
-  closeBtn: {
-    background: 'none',
-    border: 'none',
-    fontSize: '16px',
-    cursor: 'pointer',
-    color: '#94a3b8',
-  },
-  modalBody: { display: 'flex', flexDirection: 'column', gap: '12px' },
-  modalFooter: {
+  modalCloseBtn: { background: 'none', border: 'none', fontSize: '16px', color: '#64748b', cursor: 'pointer' },
+  modalForm: { display: 'flex', flexDirection: 'column', gap: '14px' },
+  modalActions: {
     display: 'flex',
     justifyContent: 'flex-end',
-    gap: '8px',
-    marginTop: '8px',
-    borderTop: '1px solid #f1f5f9',
-    paddingTop: '12px',
+    gap: '10px',
+    marginTop: '10px',
+    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+    paddingTop: '16px',
   },
-  cancelBtn: {
-    background: '#f1f5f9',
-    border: 'none',
-    padding: '8px 14px',
-    borderRadius: '6px',
+  modalCancelBtn: {
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    padding: '9px 16px',
+    borderRadius: '8px',
     fontWeight: '600',
-    fontSize: '12px',
-    color: '#475569',
+    fontSize: '13px',
+    color: '#94a3b8',
     cursor: 'pointer',
+  },
+  modalSubmitBtn: {
+    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+    border: 'none',
+    color: '#ffffff',
+    padding: '9px 18px',
+    borderRadius: '8px',
+    fontWeight: '600',
+    fontSize: '13px',
+    cursor: 'pointer',
+    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.35)',
   },
   toast: {
     position: 'fixed',
-    top: '18px',
-    right: '18px',
+    top: '20px',
+    right: '24px',
     zIndex: 1100,
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
+    gap: '10px',
     padding: '10px 16px',
-    borderRadius: '8px',
-    fontSize: '13px',
-    fontWeight: '600',
-    boxShadow: '0 8px 14px rgba(0,0,0,0.1)',
+    borderRadius: '10px',
+    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+    backdropFilter: 'blur(16px)',
   },
-  toastSuccess: { background: '#10b981', color: '#ffffff' },
-  toastError: { background: '#ef4444', color: '#ffffff' },
+  toastIcon: {
+    width: '20px',
+    height: '20px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '11px',
+    fontWeight: 'bold',
+  },
+  toastSuccess: {
+    background: 'rgba(15, 23, 42, 0.9)',
+    border: '1px solid rgba(34, 197, 94, 0.3)',
+    color: '#4ade80',
+  },
+  toastError: {
+    background: 'rgba(15, 23, 42, 0.9)',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    color: '#f87171',
+  },
 };
